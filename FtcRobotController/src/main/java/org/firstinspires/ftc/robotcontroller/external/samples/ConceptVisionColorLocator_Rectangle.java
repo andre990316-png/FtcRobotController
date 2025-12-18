@@ -64,7 +64,6 @@ import java.util.List;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
  */
 
-@Disabled
 @TeleOp(name = "Concept: Color-Locator (Rectangle)", group = "Concept")
 public class ConceptVisionColorLocator_Rectangle extends LinearOpMode
 {
@@ -121,7 +120,7 @@ public class ConceptVisionColorLocator_Rectangle extends LinearOpMode
         ColorBlobLocatorProcessor colorLocator = new ColorBlobLocatorProcessor.Builder()
                 .setTargetColorRange(ColorRange.ARTIFACT_PURPLE)   // use a predefined color match
                 .setContourMode(ColorBlobLocatorProcessor.ContourMode.EXTERNAL_ONLY)
-                .setRoi(ImageRegion.asUnityCenterCoordinates(-0.75, 0.75, 0.75, -0.75))
+                .setRoi(ImageRegion.asUnityCenterCoordinates(-0.5, 0.5, 0.5, -0.5))
                 .setDrawContours(true)   // Show contours on the Stream Preview
                 .setBlurSize(5)          // Smooth the transitions between different colors in image
                 .build();

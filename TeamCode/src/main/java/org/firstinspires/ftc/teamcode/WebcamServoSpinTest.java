@@ -23,7 +23,7 @@ public class WebcamServoSpinTest extends OpMode {
         if (gamepad2.dpad_left)  position -= 0.001;  // turn counter-clockwise
 
         // Keep position between 0 and 1
-        position = Math.max(0.39, Math.min(0.61, position));
+        position = Math.max(0, Math.min(1, position));
 
         webcamServo.setPosition(position);
 

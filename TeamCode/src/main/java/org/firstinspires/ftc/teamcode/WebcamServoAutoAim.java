@@ -14,11 +14,11 @@ public class WebcamServoAutoAim extends OpMode {
     // --- Linear mapping: 0..300 deg  <->  0.0..1.0 position ---
     private static final double SERVO_TOTAL_DEG = 300.0;
     private static final double CENTER          = 0.50;    // 150° (middle of travel)
-    private static final double DEAD_BAND_DEG   = 1.0;     // ignore tiny wobble
     private static final int    TARGET_ID       = 22;      // change to your tag ID
+    private static final double KP_SERVO_PER_DEG = 0.00010; // try 0.010 first; smaller = gentler
+    private static final double DEAD_BAND_DEG    = 1.0;   // ignore tiny noise
+    private static final int    SIGN             = -1;    // keep as-is; we'll flip if needed
 
-    // Flip this if it still looks away from the tag:
-    private static final int SIGN = -1; // try +1 first; if wrong, set to -1
 
     // live state
     private double position = CENTER;
@@ -31,8 +31,6 @@ public class WebcamServoAutoAim extends OpMode {
         webcamServo.setDirection(Servo.Direction.FORWARD);
 
         aprilTagWebcam.init(hardwareMap, telemetry);
-
-        position = clamp(CENTER, 0.0, 1.0);
         webcamServo.setPosition(position);
 
         telemetry.addLine("WebcamServoAutoAim_Linear300 ready");
@@ -44,33 +42,28 @@ public class WebcamServoAutoAim extends OpMode {
         AprilTagDetection tag = aprilTagWebcam.getTagBySpecificId(TARGET_ID);
 
         if (tag != null) {
-            double bearing = tag.ftcPose.bearing;   // degrees: +right, -left
+            double bearing = tag.ftcPose.bearing; // + right, - left
             double absErr  = Math.abs(bearing);
 
             if (absErr < DEAD_BAND_DEG) {
-                // hold steady to kill jitter around center
+                // hold position to kill jitter near center
                 webcamServo.setPosition(position);
                 telemetry.addLine("Centered (deadband)");
             } else {
-                // Direct linear mapping: CENTER +/- (bearing / 300)
-                double target = CENTER + SIGN * (bearing / SERVO_TOTAL_DEG);
-
-                // Keep inside 0..1 (full travel)
-                position = clamp(target, 0.0, 1.0);
+                // incremental P control: move a fraction of the error each loop
+                double delta = SIGN * KP_SERVO_PER_DEG * bearing; // servo units per loop
+                position = Math.max(0.0, Math.min(1.0, position + delta));
                 webcamServo.setPosition(position);
 
                 telemetry.addLine("Tag detected");
                 telemetry.addData("Bearing (deg)", "%.2f", bearing);
+                telemetry.addData("Delta", "%.4f", delta);
             }
             telemetry.addData("Servo pos", "%.3f", position);
         } else {
             telemetry.addLine("No tag visible");
         }
         telemetry.update();
-    }
-
-    private static double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
     }
 
     @Override
