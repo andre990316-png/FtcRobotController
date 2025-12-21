@@ -26,25 +26,27 @@ public class Drivetrain2 extends LinearOpMode {
     private DcMotor IntakeMotor;
     private DcMotor ShooterM1; // right
     private DcMotor ShooterM2; // left
+    private DcMotor ShooterRotateMotor;
     private Servo ShooterS1;   // angle/position servo
     private CRServo IntakeServo;
 
     // Vision + turret
     private Limelight3A limelight;
-    private CRServo limelightServo; // turret rotate CRServo
+    //private CRServo limelightServo; // turret rotate CRServo
     private IMU imu;
 
     // PD constants for turret
-    private double Kp = 0.01;
-    private double Kd = 0.004;
+    private double Kp = 0.018;
+    private double Kd = 0.00;
     private double deadband = 1.0; // degrees
-    private double maxTurretPower = 0.30;
+    private double maxTurretPower = 1;
     private double shooterPower = 0.0;
     private boolean shooterEnabled = false;
 
     // PD state
     private double lastTx = 0;
     private double lastAimTime = 0;
+    private double lastTurretPower = 0;
 
     @Override
     public void runOpMode() {
@@ -57,6 +59,8 @@ public class Drivetrain2 extends LinearOpMode {
         boolean Right_BumperPrev;
         boolean Left_BumperPrev;
         boolean Left_BumperPrev2;
+        boolean DpadUpPrev2;
+        boolean DpadDownPrev2;
         boolean Precision_mode_toggle;
         boolean Precision_mode;
         boolean IntakeToggle;
@@ -87,7 +91,7 @@ public class Drivetrain2 extends LinearOpMode {
         // Vision + turret
         limelight = hardwareMap.get(Limelight3A.class, "Limelight");
         limelight.pipelineSwitch(4);
-        limelightServo = hardwareMap.get(CRServo.class, "ShooterRotateServo");
+        ShooterRotateMotor = hardwareMap.get(DcMotor.class, "ShooterRotateMotor");
 
         imu = hardwareMap.get(IMU.class, "imu");
         RevHubOrientationOnRobot revHubOrientationOnRobot = new RevHubOrientationOnRobot(
@@ -120,6 +124,8 @@ public class Drivetrain2 extends LinearOpMode {
         Left_BumperPrev = false;
         Right_BumperPrev = false;
         Left_BumperPrev2 = false;
+        DpadUpPrev2 = false;
+        DpadDownPrev2 = false;
 
         Precision_mode_toggle = false;
         IntakeToggle = false;
@@ -177,26 +183,38 @@ public class Drivetrain2 extends LinearOpMode {
                 ShooterS1.setPosition(pos);
             }
 
+
             // ---------------------------
             // Shooter motors (gamepad2 trigger)
             // ---------------------------
 
-            /*if (gamepad2.dpad_up) {
+            if (gamepad2.dpad_up  && !DpadUpPrev2) {
                 shooterPower += 0.01;
             }
-            if (gamepad2.dpad_down) {
+            DpadUpPrev2 = gamepad2.dpad_up;
+            if (gamepad2.dpad_down && !DpadDownPrev2) {
                 shooterPower -= 0.01;
             }
+            DpadDownPrev2 = gamepad2.dpad_down;
+
             if(gamepad2.square){
                 shooterPower = 0;
             }
             shooterPower = Range.clip(shooterPower, 0.0, 1.0);
             ShooterM1.setPower(shooterPower);
             ShooterM2.setPower(-shooterPower);
-            */
-            if(gamepad2.square) {
+
+            /*if(gamepad2.square) {
                 shooterEnabled = !shooterEnabled;
             }
+            if(gamepad2.square) {
+                shooterPower = 1;
+            }
+            if(gamepad2.cross) {
+                shooterPower = 0;
+            }
+            ShooterM1.setPower(shooterPower);
+            ShooterM2.setPower(-shooterPower);*/
             // ---------------------------
             // Intake toggle (gamepad1 left bumper)
             // ---------------------------
@@ -300,15 +318,15 @@ public class Drivetrain2 extends LinearOpMode {
 
             if (autoAimEnabled) {
                 LLResult llResult = limelight.getLatestResult();
-
                 if (llResult != null && llResult.isValid()) {
                     double tx = llResult.getTx();
                     double error = -tx;
 
                     double Aim_now = getRuntime();
                     double Aim_dt = Aim_now - lastAimTime;
-                    if (Aim_dt <= 0) Aim_dt = 0.02;
+                    //if (Aim_dt <= 0) Aim_dt = 0.02;
 
+                    //double Aim_dt = 0.04;
                     double dTx = (tx - lastTx) / Aim_dt;
 
                     if (Math.abs(tx) <= deadband) {
@@ -318,7 +336,7 @@ public class Drivetrain2 extends LinearOpMode {
                     }
 
                     turretPower = Range.clip(turretPower, -maxTurretPower, maxTurretPower);
-                    if(shooterEnabled) {
+                    /*if(shooterEnabled) {
                         shooterPower = 0.753998 - 0.146848 * Math.log(llResult.getTa());
                         shooterPower = Range.clip(shooterPower, 0.0, 1.0);
                         ShooterM1.setPower(shooterPower);
@@ -327,10 +345,9 @@ public class Drivetrain2 extends LinearOpMode {
                     else {
                         ShooterM1.setPower(0);
                         ShooterM2.setPower(0);
-                    }
+                    }*/
                     lastTx = tx;
                     lastAimTime = Aim_now;
-                    //ShooterS1.setPosition(llResult.getTa());
 
                     telemetry.addData("AutoAim", "ON");
                     telemetry.addData("tx", tx);
@@ -339,10 +356,10 @@ public class Drivetrain2 extends LinearOpMode {
                     telemetry.addData("Turret PD", turretPower);
                 } else {
                     // No valid tag -> stop turret for safety
-                    turretPower = 0;
+                    turretPower = lastTurretPower;
                     telemetry.addData("AutoAim", "ON (no valid tag)");
                 }
-
+                lastTurretPower = turretPower;
             } else {
                 // Manual turret rotate using gamepad2 right stick X
                 double manual = gamepad2.right_stick_x;
@@ -360,7 +377,7 @@ public class Drivetrain2 extends LinearOpMode {
                 telemetry.addData("Turret Manual", turretPower);
             }
 
-            limelightServo.setPower(turretPower);
+            ShooterRotateMotor.setPower(turretPower);
 
             // Shooter Input Sum
             double shooterPowerSum = ShooterM1.getPower() + Math.abs(ShooterM2.getPower());
